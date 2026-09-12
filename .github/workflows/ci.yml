@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # 検体(不可視文字などを仕込んだファイル)に対する期待どおりの検知を確認する
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: run tests
+        run: ./tests/run.sh
+
+  # action 自身を自リポに適用する。検体は意図的に汚れているため除外する
+  self-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./ # zizmor: ignore[self-repository] $/ 記法は actionlint が未対応
+        with:
+          exclude: "tests/fixtures/*"

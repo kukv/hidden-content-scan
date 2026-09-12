@@ -1,0 +1,48 @@
+name: hidden-content-scan
+description: 人のレビューで見えない内容(不可視 Unicode・同形異字・レンダリングで消える記述)を検知する
+author: kukv
+
+inputs:
+  files:
+    description: 検査対象のファイル(改行区切り)。既定は git 管理下のテキストファイル全部
+    required: false
+    default: ""
+  exclude:
+    description: 除外する glob(カンマ区切り)。例 `**/testdata/**,docs/assets/*`
+    required: false
+    default: ""
+  report-only:
+    description: 検知しても失敗させないルール(カンマ区切り)。既定は odd-space,long-line,base64-blob,private-use
+    required: false
+    default: "odd-space,long-line,base64-blob,private-use"
+  working-directory:
+    description: 検査を実行するディレクトリ
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: scan hidden content
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      # 入力は env 経由で渡す(run 内に ${{ }} を直接埋めると注入の余地ができる)
+      env:
+        INPUT_FILES: ${{ inputs.files }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_REPORT_ONLY: ${{ inputs.report-only }}
+        SCAN_SCRIPT: ${{ github.action_path }}/scripts/scan.py
+      run: |
+        set -euo pipefail
+
+        if [ -n "$INPUT_FILES" ]; then
+          printf '%s\n' "$INPUT_FILES" | sed '/^[[:space:]]*$/d' | tr '\n' '\0' > /tmp/hcs-files
+        else
+          # -I でバイナリを除外し、-z で非 ASCII のファイル名もそのまま渡す
+          git grep -lIz --cached '' > /tmp/hcs-files
+        fi
+
+        xargs -0 --no-run-if-empty python3 "$SCAN_SCRIPT" \
+          --exclude "$INPUT_EXCLUDE" \
+          --report-only "$INPUT_REPORT_ONLY" \
+          --github-annotations < /tmp/hcs-files

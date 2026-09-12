@@ -1,0 +1,2 @@
+*.min.js -diff
+vendor/** linguist-generated=true
