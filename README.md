@@ -1,27 +1,31 @@
 # hidden-content-scan
 
-人のレビューで**見えない**内容を検知する GitHub Action。
+[日本語](README.ja.md)
 
-差分を目で追っても気づけない形で紛れ込む「隠れた実装コード」と「隠れたプロンプト」を止めることが目的。
+A GitHub Action that detects content **a human reviewer cannot see**.
 
-## 使い方
+Its purpose is to stop hidden implementation code and hidden prompts — the kind that slip through
+because no amount of staring at a diff reveals them.
+
+## Usage
 
 ```yaml
       - uses: kukv/hidden-content-scan@<commit sha> # vX.Y.Z
 ```
 
-対象は既定で **git 管理下のテキストファイル全部**（バイナリは除外）。AI エージェントへの指示ファイル（`CLAUDE.md`、`AGENTS.md`、`.cursorrules`、`.claude/**` など）も含む。
+By default it scans **every text file tracked by git** (binaries are skipped), including instruction
+files read by AI agents (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.claude/**`, and so on).
 
-### 入力
+### Inputs
 
-| 入力 | 既定 | 説明 |
+| Input | Default | Description |
 |---|---|---|
-| `files` | git 管理下のテキストファイル | 検査対象（改行区切り） |
-| `exclude` | なし | 除外する glob（カンマ区切り）。例 `**/testdata/**` |
-| `report-only` | `odd-space,long-line,base64-blob,private-use` | 検知しても失敗させないルール |
-| `working-directory` | `.` | 実行ディレクトリ |
+| `files` | all text files tracked by git | Files to scan (newline separated) |
+| `exclude` | none | Globs to skip (comma separated), e.g. `**/testdata/**` |
+| `report-only` | `odd-space,long-line,base64-blob,private-use` | Rules that report without failing the job |
+| `working-directory` | `.` | Directory to run in |
 
-### 例: テストデータを除外する
+### Example: excluding test data
 
 ```yaml
       - uses: kukv/hidden-content-scan@<commit sha> # vX.Y.Z
@@ -29,39 +33,43 @@
           exclude: "**/testdata/**"
 ```
 
-## 検知するもの
+## What it detects
 
-| ルール | 内容 | 既定 |
+| Rule | What it finds | Default |
 |---|---|---|
-| `bidi` | 双方向制御文字（Trojan Source）。表示順とコンパイル順をずらす | **失敗** |
-| `zero-width` | ゼロ幅・不可視文字（U+200B/200C/FEFF/00AD/180E、ハングル填字、不可視演算子、注釈文字） | **失敗** |
-| `tag-chars` | タグ文字 U+E0000–E007F。**人には見えず LLM だけが読む**プロンプトの埋め込みに使われる | **失敗** |
-| `stray-joiner` | 絵文字以外に付いた U+FE0F / U+200D | **失敗** |
-| `mixed-script` | 同形異字。1 トークン内でラテン文字とキリル/ギリシャ文字が混在（`admin` の `a` をキリル文字 U+0430 に差し替える、など） | **失敗** |
-| `hidden-markup` | AI 指示ファイル内の、レンダリングすると消える記述（HTML コメント、`<details>`、`display:none`、背景と同化する文字色） | **失敗** |
-| `diff-hiding` | `.gitattributes` の `-diff` / `linguist-generated` / テキストへの `binary` 指定。GitHub の PR 画面で中身が表示されなくなる | **失敗** |
-| `private-use` | 私用領域の文字。Nerd Font のアイコンで正当に使われる | 警告 |
-| `odd-space` | NBSP など通常と異なる空白 | 警告 |
-| `long-line` | 2000 文字超の行。GitHub が差分を既定で開かない | 警告 |
-| `base64-blob` | 500 文字以上の base64 らしき塊 | 警告 |
+| `bidi` | Bidirectional control characters (Trojan Source) — the rendered order differs from what compiles | **fails** |
+| `zero-width` | Zero-width and invisible characters (U+200B/200C/FEFF/00AD/180E, Hangul filler, invisible operators, interlinear annotation) | **fails** |
+| `tag-chars` | Tag characters U+E0000–E007F — **invisible to humans, read by LLMs**; the usual carrier for embedded prompts | **fails** |
+| `stray-joiner` | U+FE0F / U+200D attached to something that is not an emoji | **fails** |
+| `mixed-script` | Homoglyphs: Latin mixed with Cyrillic or Greek inside a single token (for example `admin` whose `a` is U+0430) | **fails** |
+| `hidden-markup` | Markup in AI instruction files that disappears when rendered: HTML comments, `<details>`, `display:none`, text colored like the background | **fails** |
+| `diff-hiding` | `.gitattributes` entries that suppress the diff on GitHub: `-diff`, `linguist-generated`, `binary` on a text file | **fails** |
+| `private-use` | Private use area characters — legitimately used by Nerd Font icons | warns |
+| `odd-space` | Unusual whitespace such as NBSP | warns |
+| `long-line` | Lines over 2000 characters, which GitHub does not expand by default | warns |
+| `base64-blob` | Base64-looking runs of 500 characters or more | warns |
 
-`report-only` 入力で、失敗させる／警告どまりにする の振り分けを変えられる。
+Use the `report-only` input to move rules between failing and warning.
 
-## 検知しないもの
+## What it does not detect
 
-- **見えているが誤読させる**コード（紛らわしい命名、巧妙なロジック）— レビューそのものの責務
-- 依存ライブラリの中身 — SCA（osv-scanner）の領域
-- ビルド成果物に埋め込まれたコード — 生成元をレビュー対象にする運用で担保する
+- Code that is **visible but misleading** (confusing names, subtle logic) — that is what review itself is for
+- The contents of third-party dependencies — that belongs to SCA (osv-scanner and friends)
+- Code baked into build artifacts — keep the source under review instead
 
-## 設計
+## Design
 
-- **標準ライブラリのみ**で動く（`scripts/scan.py`）。検査する側が依存を持つと、そこが供給網の弱点になるため
-- 判定は許可リストではなくコードポイント集合。絵文字の異体字セレクタ（U+FE0F）や ZWJ は、**直前が絵文字のときだけ**許容する（絵文字入りドキュメントで誤検知しないため）
-- 同形異字はトークン単位のスクリプト混在だけを見る。日本語＋ラテン文字の混在は正当なので対象外
+- Runs on the **standard library only** (`scripts/scan.py`). A scanner that pulls in dependencies becomes
+  the supply-chain weak point it is meant to guard against
+- Detection works from code point sets rather than an allowlist. Emoji variation selectors (U+FE0F) and
+  ZWJ are accepted **only when the preceding code point is an emoji**, so documents containing emoji do
+  not turn the check red
+- Homoglyph detection only looks at script mixing within a token. Japanese text next to Latin words is
+  legitimate and never flagged
 
-## 開発
+## Development
 
 ```bash
-./tests/run.sh                      # 検体に対する期待どおりの検知を確認
-python3 scripts/scan.py <files...>  # 手元で実行
+./tests/run.sh                      # verify the fixtures are detected as expected
+python3 scripts/scan.py <files...>  # run it locally
 ```
