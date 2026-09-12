@@ -65,9 +65,9 @@ process; you are welcome to open a new issue or pull request that shows your own
 Closing one does not mean the underlying point was worthless. If a closed issue or pull
 request contains something useful, the maintainer may take it up — as an issue raised by
 the maintainer, or by merging or rewriting the change — without notice and without credit
-to the original submitter. Anything you submit is already licensed under the
-[MIT License](LICENSE) as stated above, and opening an issue or pull request here means
-you accept this handling.
+to the original submitter. Anything you submit is licensed under the
+[MIT License](LICENSE), and opening an issue or pull request here means you accept this
+handling.
 
 ## Reporting problems
 
