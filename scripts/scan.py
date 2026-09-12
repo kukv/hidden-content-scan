@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""人のレビューで見えない内容を検知する。
+"""Detect content a human reviewer cannot see.
 
-対象は「差分を目視しても気づけない」もの:
-  - 不可視 / 書式制御の Unicode(Trojan Source、ゼロ幅、LLM だけが読むタグ文字)
-  - 同形異字(ラテン文字に化けたキリル・ギリシャ文字)
-  - AI 指示ファイルの、レンダリングすると消える記述
-  - GitHub の差分表示を抑止する .gitattributes 設定
+The target is anything that stares back invisibly from a diff:
+  - Invisible / formatting Unicode (Trojan Source, zero-width, tag characters only LLMs read)
+  - Homoglyphs (Cyrillic or Greek letters disguised as Latin)
+  - Markup in AI instruction files that disappears when rendered
+  - .gitattributes entries that suppress the diff on GitHub
 
-標準ライブラリのみで動く(依存を増やすと action 自体が供給網の弱点になるため)。
+Runs on the standard library alone: a scanner with dependencies becomes the supply-chain
+weak point it is meant to guard against.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ import sys
 import unicodedata
 from dataclasses import dataclass
 
-# --- 不可視 / 書式制御 ------------------------------------------------------
+# --- Invisible / formatting characters -------------------------------------
 BIDI = set(range(0x202A, 0x202F)) | set(range(0x2066, 0x206A))
 ZERO_WIDTH = {0x200B, 0x200C, 0xFEFF, 0x00AD, 0x180E, 0x3164, 0x115F, 0x1160, 0xFFA0}
 INVISIBLE_MATH = set(range(0x2060, 0x2065))
@@ -28,7 +29,7 @@ PRIVATE_USE = set(range(0xE000, 0xF900)) | set(range(0xF0000, 0x10FFFE))
 ODD_SPACE = {0x00A0, 0x202F, 0x205F, 0x3000} | set(range(0x2000, 0x200B))
 EMOJI_JOINERS = {0xFE0F, 0x200D}
 
-# --- AI 指示ファイル --------------------------------------------------------
+# --- AI instruction files ---------------------------------------------------
 AI_FILENAMES = {
     "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", "GEMINI.md",
     ".cursorrules", ".clinerules", ".windsurfrules", "copilot-instructions.md",
@@ -36,17 +37,17 @@ AI_FILENAMES = {
 AI_DIR_MARKERS = ("/.claude/", "/.cursor/", "/.github/instructions/")
 
 HIDDEN_MARKUP = [
-    (re.compile(r"<!--"), "HTML コメント(レンダリング時に消える)"),
-    (re.compile(r"<details\b", re.I), "details による折り畳み"),
+    (re.compile(r"<!--"), "HTML comment (invisible once rendered)"),
+    (re.compile(r"<details\b", re.I), "collapsed behind <details>"),
     (re.compile(r"display\s*:\s*none", re.I), "display:none"),
     (re.compile(r"visibility\s*:\s*hidden", re.I), "visibility:hidden"),
     (re.compile(r"font-size\s*:\s*0", re.I), "font-size:0"),
     (re.compile(r"opacity\s*:\s*0(?![.\d])", re.I), "opacity:0"),
-    (re.compile(r"color\s*:\s*(#f{3}\b|#f{6}\b|white|transparent)", re.I), "背景と同化する文字色"),
+    (re.compile(r"color\s*:\s*(#f{3}\b|#f{6}\b|white|transparent)", re.I), "text colored like the background"),
 ]
 
-# 差分表示を抑止する指定。`binary` は画像・フォントなど本物のバイナリに付ける
-# のが普通なので、テキストになり得る対象に付いているときだけ問題にする。
+# Entries that suppress the diff. `binary` is normal on real binaries such as images
+# and fonts, so it is only a problem when applied to something that could be text.
 BINARY_EXTENSIONS = {
     "png", "jpg", "jpeg", "gif", "ico", "icns", "bmp", "webp", "avif", "svgz",
     "woff", "woff2", "ttf", "otf", "eot", "pdf", "zip", "gz", "tgz", "bz2", "xz",
@@ -56,12 +57,12 @@ BINARY_EXTENSIONS = {
 }
 DIFF_SUPPRESSORS = re.compile(r"(?<![\w-])(-diff|linguist-generated(=true)?|binary)(?![\w-])")
 
-# 文字クラスはエスケープで書く。ここにキリル・ギリシャ文字を直接置くと、
-# この検査自身が自分のソースを mixed-script として検知してしまう。
+# The character class is written with escapes: putting literal Cyrillic or Greek here
+# would make this very check flag its own source as mixed-script.
 TOKEN = re.compile("[0-9A-Za-z_\u0370-\u03ff\u0400-\u04ff]+")
 
-# 既定で警告どまりにするルール(実リポで正当な用例が多いもの。
-# private-use は Nerd Font のアイコンに使われる)
+# Rules that only warn by default: legitimate uses are common in real repositories
+# (private-use covers Nerd Font icons)
 DEFAULT_REPORT_ONLY = {"odd-space", "long-line", "base64-blob", "private-use"}
 
 LONG_LINE = 2000
@@ -122,24 +123,24 @@ def scan_text(path: str, text: str) -> list[Finding]:
             elif cp in TAG_CHARS:
                 out.append(Finding("tag-chars", path, lineno, col, f"U+{cp:04X} {_name_of(ch)}"))
             elif cp in PRIVATE_USE:
-                out.append(Finding("private-use", path, lineno, col, f"U+{cp:04X} 私用領域"))
+                out.append(Finding("private-use", path, lineno, col, f"U+{cp:04X} private use area"))
             elif cp in ODD_SPACE:
                 out.append(Finding("odd-space", path, lineno, col, f"U+{cp:04X} {_name_of(ch)}"))
             elif cp in EMOJI_JOINERS:
                 prev = ord(line[col - 2]) if col >= 2 else 0
                 if not _emoji_ish(prev):
-                    out.append(Finding("stray-joiner", path, lineno, col, f"U+{cp:04X} 絵文字以外への付与"))
+                    out.append(Finding("stray-joiner", path, lineno, col, f"U+{cp:04X} attached to a non-emoji"))
 
         for match in TOKEN.finditer(line):
             scripts = {s for s in (_script_of(c) for c in match.group()) if s}
             if len(scripts) > 1:
                 out.append(Finding("mixed-script", path, lineno, match.start() + 1,
-                                   f"{match.group()} に {'+'.join(sorted(scripts))} が混在"))
+                                   f"{match.group()} mixes {'+'.join(sorted(scripts))}"))
 
         if len(line) > LONG_LINE:
-            out.append(Finding("long-line", path, lineno, 1, f"{len(line)} 文字(差分が既定で開かれない)"))
+            out.append(Finding("long-line", path, lineno, 1, f"{len(line)} characters (diff not expanded by default)"))
         if BASE64_BLOB.search(line):
-            out.append(Finding("base64-blob", path, lineno, 1, "長大な base64 らしき塊"))
+            out.append(Finding("base64-blob", path, lineno, 1, "long base64-looking run"))
 
         if ai_file:
             for pattern, label in HIDDEN_MARKUP:
@@ -164,9 +165,9 @@ def _scan_gitattributes(path: str, text: str) -> list[Finding]:
         pattern = stripped.split()[0]
         ext = pattern.rsplit(".", 1)[-1].lower() if "." in pattern else ""
         if match.group(1) == "binary" and ext in BINARY_EXTENSIONS:
-            continue  # 画像やフォントへの binary 指定は正当
+            continue  # binary on images and fonts is legitimate
         out.append(Finding("diff-hiding", path, lineno, 1,
-                           f"{pattern} の差分が GitHub で開かれなくなる({match.group(1)})"))
+                           f"{pattern} will not be shown as a diff on GitHub ({match.group(1)})"))
     return out
 
 
@@ -175,7 +176,7 @@ def scan_file(path: str) -> list[Finding]:
         with open(path, encoding="utf-8") as f:
             text = f.read()
     except (UnicodeDecodeError, OSError):
-        return []  # バイナリ・読めないものは対象外(呼び出し側が git grep -I で除外済み)
+        return []  # binaries and unreadable files are out of scope (git grep -I filters them)
     return scan_text(path, text)
 
 
@@ -183,10 +184,10 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*")
     parser.add_argument("--report-only", default=",".join(sorted(DEFAULT_REPORT_ONLY)),
-                        help="失敗させず報告だけするルール(カンマ区切り)")
-    parser.add_argument("--exclude", default="", help="除外する glob(カンマ区切り)")
+                        help="rules that report without failing (comma separated)")
+    parser.add_argument("--exclude", default="", help="globs to skip (comma separated)")
     parser.add_argument("--github-annotations", action="store_true",
-                        help="GitHub Actions のアノテーション形式でも出力する")
+                        help="also emit GitHub Actions annotations")
     args = parser.parse_args(argv)
 
     report_only = {r.strip() for r in args.report_only.split(",") if r.strip()}

@@ -1,22 +1,22 @@
 name: hidden-content-scan
-description: 人のレビューで見えない内容(不可視 Unicode・同形異字・レンダリングで消える記述)を検知する
+description: Detect content a human reviewer cannot see (invisible Unicode, homoglyphs, markup that disappears when rendered)
 author: kukv
 
 inputs:
   files:
-    description: 検査対象のファイル(改行区切り)。既定は git 管理下のテキストファイル全部
+    description: Files to scan (newline separated). Defaults to every text file tracked by git
     required: false
     default: ""
   exclude:
-    description: 除外する glob(カンマ区切り)。例 `**/testdata/**,docs/assets/*`
+    description: Globs to skip (comma separated), e.g. `**/testdata/**,docs/assets/*`
     required: false
     default: ""
   report-only:
-    description: 検知しても失敗させないルール(カンマ区切り)。既定は odd-space,long-line,base64-blob,private-use
+    description: Rules that report without failing the job (comma separated)
     required: false
     default: "odd-space,long-line,base64-blob,private-use"
   working-directory:
-    description: 検査を実行するディレクトリ
+    description: Directory to run the scan in
     required: false
     default: "."
 
@@ -26,7 +26,7 @@ runs:
     - name: scan hidden content
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      # 入力は env 経由で渡す(run 内に ${{ }} を直接埋めると注入の余地ができる)
+      # Inputs are passed through env: interpolating ${{ }} inside run is an injection risk
       env:
         INPUT_FILES: ${{ inputs.files }}
         INPUT_EXCLUDE: ${{ inputs.exclude }}
@@ -38,7 +38,7 @@ runs:
         if [ -n "$INPUT_FILES" ]; then
           printf '%s\n' "$INPUT_FILES" | sed '/^[[:space:]]*$/d' | tr '\n' '\0' > /tmp/hcs-files
         else
-          # -I でバイナリを除外し、-z で非 ASCII のファイル名もそのまま渡す
+          # -I skips binaries; -z keeps non-ASCII file names intact
           git grep -lIz --cached '' > /tmp/hcs-files
         fi
 
