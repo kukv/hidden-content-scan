@@ -67,3 +67,9 @@
 ./tests/run.sh                      # 検体に対する期待どおりの検知を確認
 python3 scripts/scan.py <files...>  # 手元で実行
 ```
+
+ルールの追加方法と CI の検査内容は [CONTRIBUTING.md](CONTRIBUTING.md) を参照。
+
+## ライセンス
+
+[MIT](LICENSE)

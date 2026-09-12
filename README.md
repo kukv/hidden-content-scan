@@ -73,3 +73,9 @@ Use the `report-only` input to move rules between failing and warning.
 ./tests/run.sh                      # verify the fixtures are detected as expected
 python3 scripts/scan.py <files...>  # run it locally
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a rule and what CI checks.
+
+## License
+
+[MIT](LICENSE)
