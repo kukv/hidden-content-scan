@@ -44,6 +44,31 @@ text next to Latin words) gets ignored in practice, so cover both sides with fix
   `Kind: Enhancement`, `Impact: Breaking`, `Kind: Dependencies`).
 - Review by the maintainer (`.github/CODEOWNERS`) is required before merge.
 
+## Use of AI
+
+AI assistance is fine. Submitting what an AI produced without understanding it is not.
+
+Generating a submission takes seconds; verifying one takes a person's time. Sending
+unverified output moves that cost onto the maintainer and takes time away from the review
+this project actually needs.
+
+Before you open an issue or a pull request, you are expected to have read the output,
+verified it against this repository, and be able to explain and defend it. You are the
+author of what you submit, whatever tool helped you write it.
+
+Issues and pull requests that appear to be unreviewed AI output — invented rules, files
+or inputs that do not exist, a diff that does not follow from the description, boilerplate
+that does not engage with this project — are **closed without notice and without
+individual explanation**. That judgment is the maintainer's, and there is no appeal
+process; you are welcome to open a new issue or pull request that shows your own reasoning.
+
+Closing one does not mean the underlying point was worthless. If a closed issue or pull
+request contains something useful, the maintainer may take it up — as an issue raised by
+the maintainer, or by merging or rewriting the change — without notice and without credit
+to the original submitter. Anything you submit is already licensed under the
+[MIT License](LICENSE) as stated above, and opening an issue or pull request here means
+you accept this handling.
+
 ## Reporting problems
 
 - A missed detection or any other security-relevant issue: see [SECURITY.md](SECURITY.md).
