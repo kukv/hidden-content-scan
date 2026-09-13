@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a rule or a change to how the action works
+labels: ["Kind: Feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **A pattern this action already should have caught is a security issue, not a feature
+        request.** Report it privately through the **Security** tab (*Report a vulnerability*) —
+        see [SECURITY.md](https://github.com/kukv/hidden-content-scan/blob/main/SECURITY.md).
+
+        Two things are settled by design: the scanner runs on the **standard library only**, and
+        the categories under *What it does not detect* in the
+        [README](https://github.com/kukv/hidden-content-scan/blob/main/README.md) — visible but
+        misleading code, third-party dependencies, build artifacts — stay out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you want solved
+      description: The content that goes unnoticed today, or the part of the action that gets in your way.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: |
+        For a new rule: what it matches, and what legitimate content it must not fire on.
