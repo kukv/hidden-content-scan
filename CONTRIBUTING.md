@@ -44,6 +44,19 @@ text next to Latin words) gets ignored in practice, so cover both sides with fix
   `Kind: Enhancement`, `Impact: Breaking`, `Kind: Dependencies`).
 - Review by the maintainer (`.github/CODEOWNERS`) is required before merge.
 
+## Releases
+
+Push a `vX.Y.Z` tag on `main`. `on-tag-push.yml` creates the GitHub Release and generates the
+notes from the labels of the pull requests included, following `.github/release.yaml`.
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Consumers pin a commit SHA with the tag in a comment (`@<sha> # v1.0.0`), so tags are never
+moved once pushed. `feat:` bumps the minor, `fix:` the patch, and anything labelled
+`Impact: Breaking` the major.
+
 ## Use of AI
 
 AI assistance is fine. Submitting what an AI produced without understanding it is not.
