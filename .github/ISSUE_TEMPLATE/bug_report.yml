@@ -1,0 +1,48 @@
+name: Bug report
+description: Something does not work as described
+labels: ["Kind: Bug Fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Content the scanner fails to report is a security issue, not a bug report.** If you found
+        hidden content that this action does not detect, report it privately through the
+        **Security** tab (*Report a vulnerability*) — see [SECURITY.md](https://github.com/kukv/hidden-content-scan/blob/main/SECURITY.md).
+        Do not post a working payload in a public issue.
+
+        False positives, a rule that fails when it should warn, a crash, or anything the README
+        describes differently from what happens belong here.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit SHA you pinned, and the `# vX.Y.Z` tag it points at.
+      placeholder: "kukv/hidden-content-scan@<commit sha> # v0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule
+      description: The rule involved, as it appears in the output.
+      placeholder: mixed-script
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: How you ran it, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: What reproduces it
+      description: |
+        The file or snippet. Write invisible characters as code points (`U+200B`) or attach the
+        file — pasting the raw characters makes this issue as unreadable as the content it is about.
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The scan output, including the summary line.
+      render: shell
