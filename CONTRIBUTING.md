@@ -9,7 +9,8 @@ The scanner is a single Python file that runs on the **standard library only**
 
 ```bash
 ./tests/run.sh                      # verify the fixtures are detected as expected
-python3 scripts/scan.py <files...>  # run it locally
+python3 scripts/scan.py --git-index # scan the repository the way the action does
+python3 scripts/scan.py <files...>  # scan specific files
 ```
 
 Keep the standard-library-only rule. A scanner that pulls in dependencies becomes
@@ -18,7 +19,9 @@ the supply-chain weak point it is meant to guard against.
 ## Adding or changing a rule
 
 1. Add a fixture under `tests/fixtures/` that contains the pattern to detect.
-2. Add an `expect <exit> <rule> <files...>` line to `tests/run.sh`.
+2. Add an `expect <exit> <rule> <files...>` line to `tests/run.sh`. Behaviour that depends on the
+   repository (file names, `.gitattributes`, the `files` input) is tested with `expect_action` against a
+   temporary repository instead.
 3. Document the rule in the table in `README.md` and `README.ja.md`.
 4. If the rule should warn rather than fail the job, add it to the `report-only`
    default in `action.yml` and say so in both READMEs.
