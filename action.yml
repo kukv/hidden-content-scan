@@ -4,17 +4,17 @@ author: kukv
 
 inputs:
   files:
-    description: Files to scan (newline separated). Defaults to every text file tracked by git
+    description: Files to scan (newline separated, literal paths). Defaults to every text file tracked by git, read from the index
     required: false
     default: ""
   exclude:
-    description: Globs to skip (comma separated), e.g. `**/testdata/**,docs/assets/*`
+    description: Globs to skip (comma separated), e.g. `**/testdata/**,docs/assets/*`. `*` stays within one directory, `**` spans directories
     required: false
     default: ""
   report-only:
     description: Rules that report without failing the job (comma separated)
     required: false
-    default: "odd-space,long-line,base64-blob,private-use"
+    default: "odd-space,long-line,base64-blob,private-use,invalid-utf8"
   working-directory:
     description: Directory to run the scan in
     required: false
@@ -35,14 +35,18 @@ runs:
       run: |
         set -euo pipefail
 
+        # File names never reach argv: a name such as `--help` must not become an option
         if [ -n "$INPUT_FILES" ]; then
-          printf '%s\n' "$INPUT_FILES" | sed '/^[[:space:]]*$/d' | tr '\n' '\0' > /tmp/hcs-files
+          list=$(mktemp "${RUNNER_TEMP:-/tmp}/hcs-files.XXXXXX")
+          printf '%s\n' "$INPUT_FILES" | sed '/^[[:space:]]*$/d' | tr '\n' '\0' > "$list"
+          set -- --files-from "$list"
         else
-          # -I skips binaries; -z keeps non-ASCII file names intact
-          git grep -lIz --cached '' > /tmp/hcs-files
+          # Read the index, not the working tree: attributes and checkout cannot change what is scanned
+          set -- --git-index
         fi
 
-        xargs -0 --no-run-if-empty python3 "$SCAN_SCRIPT" \
+        # -I keeps PYTHONPATH and files in the scanned checkout from shadowing the standard library
+        python3 -I "$SCAN_SCRIPT" \
           --exclude "$INPUT_EXCLUDE" \
           --report-only "$INPUT_REPORT_ONLY" \
-          --github-annotations < /tmp/hcs-files
+          --github-annotations "$@"
